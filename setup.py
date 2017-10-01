@@ -9,7 +9,7 @@ setup(
     description='A command line tool for processing S3 ALB logs',
     long_description=open('README.md').read(),
     url='https://github.com/jmreicha/s3-alb-logparser',
-    install_requires=['click', 'boto'],
+    install_requires=['click', 'boto3', 'smart_open'],
     entry_points={
         'console_scripts':[
             'logparser = logparser.cli:logparser',

@@ -1,11 +1,11 @@
 import click
-
+import time
+from collections import Counter
 from logparser import helpers
 
 # Set up some defaults
 bucket_name =  'techtest-alb-logs'
-prefix = 'webservices/AWSLogs/158469572311/elasticloadbalancing/us-west-2/'
-s3_url = prefix + '2017/08/01/158469572311_elasticloadbalancing_us-west-2_app.webservices.2f179337c6c8adb5_20170801T0000Z_54.148.145.231_2gqui3gc.log.gz'
+bucket_prefix = 'webservices/AWSLogs/158469572311/elasticloadbalancing/us-west-2/'
 
 # Click setup
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
@@ -15,16 +15,40 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 def logparser():
     """Manage S3 logs."""
 
+# TODO add a flag to toggle on realtime streaming of logs
 
 @logparser.command('getcodes')
-@click.option('--from_date', is_flag=True, help='beginning date to filter')
-@click.option('--to_date', is_flag=True, help='ending date to filter')
-@click.option('--max_num', is_flag=True, help='max number of error codes to return')
+@click.option('--from_date', help='beginning date to filter')
+@click.option('--to_date', help='ending date to filter')
+@click.option('--max_num', default=10, help='max number of error codes to return - 10 is default')
 def getcodes(from_date, to_date, max_num):
-    helpers.match_date(s3_url, '2017/08/01')
+    # Check that we get the date formatted correctly
+    from_date = helpers.normalize_date(from_date)
+    to_date = helpers.normalize_date(to_date)
 
-    # Default output if no args are provided
-    #click.echo('Nothing to parse.  Try adding filter dates.')
+    # Check if there is a directory for the parsed date
+    if (helpers.s3_directory_exists(bucket_name, bucket_prefix + from_date)) is False:
+        print("No logs for " + from_date)
+        exit(0)
+    if (helpers.s3_directory_exists(bucket_name, bucket_prefix + to_date)) is False:
+        print("No logs for " + to_date)
+        exit(0)
+
+    print('Collecting ALB logs for ' + from_date + ' - ' + to_date)
+
+    # TODO Add  a progress bar
+    # Iterate over dates in range and get all the logs
+    logs = helpers.filter_s3_logs(from_date, to_date)
+    print('Analyzing status codes for ' + str(len(logs)) + ' log files')
+    print('This could take awhile ...')
+    time.sleep(5)
+
+    # Filter status codes
+    statuses= helpers.analyze_codes(*logs)
+    counter = Counter(statuses)
+
+    print("Status codes")
+    print(counter.most_common(max_num))
 
 
 @logparser.command('geturls')
