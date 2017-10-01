@@ -22,6 +22,12 @@ def normalize_date(date):
 
     date_obj = parser.parse(date)
     normal_date = datetime.date.strftime(date_obj, "%Y/%m/%d")
+
+    # Check if there is a directory for the parsed date
+    if (s3_directory_exists(bucket_name, bucket_prefix + normal_date)) is False:
+        print("No logs for " + normal_date)
+        exit(1)
+
     return normal_date
 
 
@@ -59,8 +65,7 @@ def analyze_codes(*log_urls):
         # Decode and read lines from the log files
         for line in smart_open.smart_open('s3://' + url):
             line = line.decode('utf-8')
-            print(line)
-
+            #print(line)
             # Parse HTTPS codes - the position should always be the same
             line_parts = line.split(' ')
             status_codes.append(line_parts[8])
@@ -68,3 +73,54 @@ def analyze_codes(*log_urls):
     return status_codes
 
 
+def analyze_urls(log_urls, code):
+    """ Helper function to Read through log entries and save urls."""
+    url_in_log = []
+    for url in log_urls:
+        # Decode and read lines from the log files
+        for line in smart_open.smart_open('s3://' + url):
+            line = line.decode('utf-8')
+            print(line)
+            # Parse urls - only care about specific status codes
+            line_parts = line.split(' ')
+            if line_parts[8] == str(code):
+                url_in_log.append(line_parts[13])
+
+    return url_in_log
+
+
+def analyze_uas(log_urls, code):
+    """ Helper function to Read through log entries and save useragents."""
+    user_agents = []
+    for url in log_urls:
+        # Decode and read lines from the log files
+        for line in smart_open.smart_open('s3://' + url):
+            line = line.decode('utf-8')
+            print(line)
+            # Parse user agents - need to regex for some user agents
+            line_parts = line.split(' ')
+            if line_parts[8] == str(code):
+                # I'm so sorry
+                match = re.search(r'\"[^\"]+\"[^\"]+\"(?P<agent>[^\"]*)\"', line)
+                ua = match.group(1)
+                user_agents.append(ua)
+
+    return user_agents
+
+
+def log_report(log_urls):
+    """ Helper function to Read through log entries and save useful info."""
+    for url in log_urls:
+        # Decode and read lines from the log files
+        for line in smart_open.smart_open('s3://' + url):
+            line = line.decode('utf-8')
+            print(line)
+
+    # Just overwrite the logfile every time
+    with open('/tmp/logreport.csv', 'w') as logreport:
+        wr = csv.writer(logreport, quoting=csv.QUOTE_ALL)
+        wr.writerow(line_parts)
+
+    print('log report written to /tmp/logreport.csv')
+
+    return
