@@ -33,7 +33,7 @@ def getcodes(from_date, to_date, max_num):
     status_counter = Counter(statuses)
     top_statuses = status_counter.most_common(max_num)
 
-    print('(status code) (number of entries')
+    print('(status code) (number of entries)')
     print('\n'.join('%s %s' % x for x in top_statuses))
 
 
@@ -56,7 +56,7 @@ def geturls(code, from_date, to_date, for_date, max_num):
     url_counter = Counter(urls)
     top_urls = url_counter.most_common(max_num)
 
-    print('(url) (number of entries')
+    print('(url) (number of entries)')
     print('\n'.join('%s %s' % x for x in top_urls))
 
 
@@ -80,7 +80,7 @@ def getuas(code, from_date, to_date, for_date, max_num):
     agent_counter = Counter(user_agents)
     top_agents = agent_counter.most_common(max_num)
 
-    print('(user agent) (number of entries')
+    print('(user agent) (number of entries)')
     print('\n'.join('%s %s' % x for x in top_agents))
 
 
