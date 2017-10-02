@@ -1,4 +1,5 @@
 import click
+import csv
 import sys
 import time
 from collections import Counter
@@ -12,7 +13,7 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 def logparser():
     """Manage S3 logs."""
 
-# TODO add a flag to toggle on realtime streaming of logs
+# TODO add a flag to toggle on streaming of logs
 
 @logparser.command('getcodes')
 @click.option('--from_date', help='beginning date to filter')
@@ -22,19 +23,18 @@ def getcodes(from_date, to_date, max_num):
     # Check that we get the date formatted correctly
     from_date = helpers.normalize_date(from_date)
     to_date = helpers.normalize_date(to_date)
-    print('Collecting ALB logs for ' + from_date + ' - ' + to_date)
     # Iterate over dates in range and get all the logs
     logs = helpers.filter_s3_logs(from_date, to_date)
-    print('Analyzing status codes for ' + str(len(logs)) + ' log files')
-    print('This could take awhile ...')
-    time.sleep(5)
+    print('Analyzing top ' + str(max_num) + ' status codes for ' + from_date + ' - ' + to_date)
+    print('This will take awhile ...')
 
     # Filter status codes
     statuses = helpers.analyze_codes(*logs)
     status_counter = Counter(statuses)
+    top_statuses = status_counter.most_common(max_num)
 
-    print('Top ' + str(max_num) + ' status codes')
-    print(status_counter.most_common(max_num))
+    print('(status code) (number of entries')
+    print('\n'.join('%s %s' % x for x in top_statuses))
 
 
 @logparser.command('geturls')
@@ -47,18 +47,17 @@ def geturls(code, from_date, to_date, for_date, max_num):
     # Check that we get the date formatted correctly
     from_date = helpers.normalize_date(from_date)
     to_date = helpers.normalize_date(to_date)
-    print('Collecting ALB logs for ' + from_date + ' - ' + to_date)
     # Iterate over dates in range and get all the logs
     logs = helpers.filter_s3_logs(from_date, to_date)
-    print('Analyzing urls for status code ' + str(code))
-    print('This could take awhile ...')
-    time.sleep(5)
+    print('Analyzing top ' + str(max_num) + ' urls for status code' + str(code) + ' for ' + from_date + ' - ' + to_date)
+    print('This will take awhile ...')
 
     urls = helpers.analyze_urls(logs, code)
     url_counter = Counter(urls)
+    top_urls = url_counter.most_common(max_num)
 
-    print('Top ' + str(max_num) + ' urls for ' + str(code) + ' status code')
-    print(url_counter.most_common(max_num))
+    print('(url) (number of entries')
+    print('\n'.join('%s %s' % x for x in top_urls))
 
 
 @logparser.command('getuas')
@@ -74,15 +73,15 @@ def getuas(code, from_date, to_date, for_date, max_num):
     print('Collecting ALB logs for ' + from_date + ' - ' + to_date)
     # Iterate over dates in range and get all the logs
     logs = helpers.filter_s3_logs(from_date, to_date)
-    print('Analyzing user agents for ' + str(code) + ' status codes')
-    print('This could take awhile ...')
-    time.sleep(5)
+    print('Analyzing top ' + str(max_num) + ' user agents for status code' + str(code) + ' for ' + from_date + ' - ' + to_date)
+    print('This will take awhile ...')
 
     user_agents = helpers.analyze_uas(logs, code)
     agent_counter = Counter(user_agents)
+    top_agents = agent_counter.most_common(max_num)
 
-    print('Top ' + str(max_num) + ' user agents for ' + str(code) + ' status code')
-    print(agent_counter.most_common(max_num))
+    print('(user agent) (number of entries')
+    print('\n'.join('%s %s' % x for x in top_agents))
 
 
 @logparser.command('getreport')
@@ -94,37 +93,15 @@ def getreport(from_date, to_date, for_date, max_num):
     # Check that we get the date formatted correctly
     from_date = helpers.normalize_date(from_date)
     to_date = helpers.normalize_date(to_date)
-    print('Collecting ALB logs for ' + from_date + ' - ' + to_date)
     # Iterate over dates in range and get all the logs
     logs = helpers.filter_s3_logs(from_date, to_date)
-    print('Analyzing top ' + str(max_number) + ' log results for ' + from_date + ' - ' + to_date)
-    print('This could take awhile ...')
-    time.sleep(5)
+    print('Analyzing top ' + str(max_num) + ' log results for ' + from_date + ' - ' + to_date)
+    print('This will take awhile ...')
 
-    # Get stats
-    statuses = helpers.analyze_codes(*logs)
-    status_counter = Counter(statuses)
-    top_statuses = status_counter.most_common(max_num)
-    #urls = helpers.analyze_urls(logs, code)
-    #url_counter = Counter(urls)
-    #top_urls = url_counter.most_common(max_num)
-    #user_agents = helpers.analyze_uas(logs, code)
-    #agent_counter = Counter(user_agents)
-    #top_agents = agent_counter.most_common(max_num)
+    # Make the report
+    helpers.log_report(logs, max_num)
+    print('log report written to /tmp/logreport.txt')
 
-    # Just overwrite the logfile every time
-    with open('/tmp/logreport.csv', 'w') as logreport:
-        wr = csv.writer(logreport, quoting=csv.QUOTE_ALL)
-        # Top error codes
-        wr.writerow('Top status codes', top_statuses)
-        # Top urls
-        #wr.writerow('Top urls', top_urls)
-        # Top user agents
-        #wr.writerow('Top user agents', top_agents)
-        # Total log files
-        #wr.writerow('Log files analyzed', len(logs))
-
-    print('log report written to /tmp/logreport.csv')
 
 if __name__ == '__main__':
     logparser()

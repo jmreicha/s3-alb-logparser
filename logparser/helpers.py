@@ -25,8 +25,8 @@ def normalize_date(date):
 
     # Check if there is a directory for the parsed date
     if (s3_directory_exists(bucket_name, bucket_prefix + normal_date)) is False:
-        print("No logs for " + normal_date)
-        exit(1)
+        print("No logs available for " + normal_date)
+        sys.exit(1)
 
     return normal_date
 
@@ -65,7 +65,6 @@ def analyze_codes(*log_urls):
         # Decode and read lines from the log files
         for line in smart_open.smart_open('s3://' + url):
             line = line.decode('utf-8')
-            #print(line)
             # Parse HTTPS codes - the position should always be the same
             line_parts = line.split(' ')
             status_codes.append(line_parts[8])
@@ -80,9 +79,9 @@ def analyze_urls(log_urls, code):
         # Decode and read lines from the log files
         for line in smart_open.smart_open('s3://' + url):
             line = line.decode('utf-8')
-            print(line)
             # Parse urls - only care about specific status codes
             line_parts = line.split(' ')
+            # only parse for given status code
             if line_parts[8] == str(code):
                 url_in_log.append(line_parts[13])
 
@@ -96,9 +95,9 @@ def analyze_uas(log_urls, code):
         # Decode and read lines from the log files
         for line in smart_open.smart_open('s3://' + url):
             line = line.decode('utf-8')
-            print(line)
             # Parse user agents - need to regex for some user agents
             line_parts = line.split(' ')
+            # only parse for given status code
             if line_parts[8] == str(code):
                 # I'm so sorry
                 match = re.search(r'\"[^\"]+\"[^\"]+\"(?P<agent>[^\"]*)\"', line)
@@ -107,20 +106,54 @@ def analyze_uas(log_urls, code):
 
     return user_agents
 
+# TODO Make this do all the analysis
 
-def log_report(log_urls):
+def log_report(log_urls, max_num):
     """ Helper function to Read through log entries and save useful info."""
+    status_codes = []
+    url_in_log = []
+    user_agents = []
+    line_counter = 0
     for url in log_urls:
         # Decode and read lines from the log files
         for line in smart_open.smart_open('s3://' + url):
             line = line.decode('utf-8')
-            print(line)
+            line_parts = line.split(' ')
+            # count lines
+            line_counter += 1
+            # count status codes
+            status_codes.append(line_parts[8])
+            # count urls
+            url_in_log.append(line_parts[13])
+            # count user agents
+            match = re.search(r'\"[^\"]+\"[^\"]+\"(?P<agent>[^\"]*)\"', line)
+            ua = match.group(1)
+            user_agents.append(ua)
+            #print(line)
+
+    # Find top N stats
+    status_counter = Counter(status_codes)
+    top_statuses = status_counter.most_common(max_num)
+    url_counter = Counter(url_in_log)
+    top_urls = url_counter.most_common(max_num)
+    agent_counter = Counter(user_agents)
+    top_agents = agent_counter.most_common(max_num)
 
     # Just overwrite the logfile every time
-    with open('/tmp/logreport.csv', 'w') as logreport:
-        wr = csv.writer(logreport, quoting=csv.QUOTE_ALL)
-        wr.writerow(line_parts)
+    with open('/tmp/logreport.txt', 'w') as logreport:
+        logreport.write(str(len(log_urls)) + ' log files analyzed\n')
+        logreport.write(str(line_counter) + ' log lines analyzed\n')
+        logreport.write('\n')
+        # Status codes
+        logreport.write('Top ' + str(max_num) + ' status codes\n\n')
+        logreport.write('\n'.join('%s %s' % x for x in top_statuses))
+        logreport.write('\n\n')
+        # URLs
+        logreport.write('Top ' + str(max_num) + ' urls\n\n')
+        logreport.write('\n'.join('%s %s' % x for x in top_urls))
+        logreport.write('\n\n')
+        # User agents
+        logreport.write('Top ' + str(max_num) + ' user agents\n\n')
+        logreport.write('\n'.join('%s %s' % x for x in top_agents))
+        logreport.write('\n\n')
 
-    print('log report written to /tmp/logreport.csv')
-
-    return
