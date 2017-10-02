@@ -1,5 +1,4 @@
 import click
-import csv
 import sys
 import time
 from collections import Counter
